@@ -77,10 +77,10 @@ delete x tree = case tree of
 				b = fromJust $ getMaximum tree
 				findMin i arr = case arr ! i of
 					Nothing -> findMin (i + 1) arr
-					Just _ -> i
+					Just t -> fromJust $ getMinimum t
 				findMax i arr = case arr ! i of
 					Nothing -> findMax (i - 1) arr
-					Just _ -> i
+					Just t -> fromJust $ getMaximum t
 		updatedRangeLower = if a == b then Nothing else Just (findMin a updatedOccupants, findMax b updatedOccupants)
 			where
 				a = fromJust $ getMinimum tree
