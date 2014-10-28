@@ -17,3 +17,8 @@ Implements a function, findMedian, that finds the median of a list in O(n) time,
 ----------------
 
 Implements van Emde Boas trees, which allow for efficient sorting of integers in a known range. Supports getMinimum, getMaximum, insert, and delete.
+
+5-unionfind.hs
+--------------
+
+Implements a disjoint-set data structure that supports union and find operations in as effecient as is possible in purely functional code, which appears to be O(lg(n)*a(n)) time, where a(n) is the inverse Ackermann function. The factor of lg(n) appears because we use a finger tree-like structure instead of an array. The technique of tying the knot is used is used.
