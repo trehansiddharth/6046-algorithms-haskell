@@ -4,7 +4,7 @@
 The Arrangement data type is similar to sequence in that it provides O(lg(n)) random access, but it
 is arranged differently. It has the property that an element at a larger index can never be the parent
 of an element at a smaller index. This allows us to have infinitely long Arrangements with O(lg(n))
-random access, where n is the number of elements in the Arrangement that have been evaluated so far.
+random access, where n is the index of the element you are trying to retreive.
 --}
 data Arrangement a = Branch a (Arrangement a) (Arrangement a) | Empty
 						deriving (Show, Eq, Functor)
@@ -52,21 +52,21 @@ The actual union-find structure. Based on tying the knot. You get path compressi
 TODO: Augment with size so that you actually get a(n) performance.
 --}
 
-type UF = Arrangement Int -> Arrangement Int -> Arrangement Int
-
-fix f = let x = f x in x
+type Transducer = Arrangement Int
+type RepresentativeMap = Arrangement Int
+type UF = Transducer -> RepresentativeMap
 
 -- The initial union-find structure, where everything is a singleton element. Don't have to specify
 -- how many there are, it ends up using just however many you need.
 singletons :: UF
-singletons = \xs self -> generateA (\i -> xs ? i)
+singletons = \td -> generateA (\i -> td ? i)
 
 find :: Int -> UF -> Int
-find n uf = (fix (uf infiniteA)) ? n
+find n uf = (uf infiniteA) ? n
 
 union :: Int -> Int -> UF -> UF
-union m n uf = \xs self -> uf (operator (uf xs self)) self
+union m n uf = uf . transducer
 	where
-		pm = find m uf
-		pn = find n uf
-		operator = \xs -> generateA $ \i -> if i == pm then xs ? pn else xs ? i
+		rm = find m uf
+		rn = find n uf
+		transducer xs = generateA $ \i -> if i == rm then xs ? rn else xs ? i
