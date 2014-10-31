@@ -66,7 +66,7 @@ extract :: Arrangement (Arrangement a -> b) -> (Arrangement a -> Arrangement b)
 extract arrf = \arrx -> fmap ($ arrx) arrf
 
 {--
-
+ArrMap may be useful in other implementations of union-find.
 --}
 
 newtype ArrMap a b = ArrMap (Arrangement (a -> b))
@@ -81,7 +81,7 @@ The actual union-find structure. Based on tying the knot. You get path compressi
 
 type Size = Int
 type ClassName = Int
-type Element = (Size, ClassName)
+type Element = ClassName
 type ReprSet = Arrangement Element
 type ReprMap = Arrangement Element
 type UF = ReprSet -> ReprMap
@@ -93,15 +93,15 @@ singletons = \rs -> generateA (\i -> rs ? i)
 
 --- The representative set that should be fed to the UF structure to generate a representative map.
 reprSet :: ReprSet
-reprSet = generateA $ \i -> (1, i)
+reprSet = infiniteA
 
 -- Finds the representative of a given element in a given union-find structure.
 find :: Int -> UF -> Int
-find n uf = let rm = uf reprSet in snd $ rm ? n
+find n uf = let rm = uf reprSet in rm ? n
 
 -- Determines the size (number of element) in the equivalence class of a given element
 size :: Int -> UF -> Int
-size n uf = let rm = uf reprSet in fst $ rm ? n
+size n uf = let rm = uf reprSet in rm ? n
 
 -- Returns the union-find structure resulting from the pairing of two equivalence classes.
 union :: Int -> Int -> UF -> UF
@@ -111,11 +111,7 @@ union i j uf = uf . transducer
 		ri = find i uf
 		sj = size j uf
 		rj = find j uf
-		transducer rs = rs \\ root \\ complement
-			where
-				rm = uf . transducer $ rs
-				root = if si < sj then (rj, (si + sj, rj)) else (ri, (si + sj, ri))
-				complement = if si < sj then (ri, rs ? rj) else (rj, rs ? ri)
+		transducer rs = let rm = uf . transducer $ rs in rs \\ (ri, rm ? rj)
 
 -- A union-find structure in which everything is a singleton element, except for m and n, which are
 -- paired (in the same equivalence class). Actually, for any UF uf, union i j uf = uf . paired i j,
