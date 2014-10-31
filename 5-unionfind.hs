@@ -1,5 +1,9 @@
 {-# LANGUAGE DeriveFunctor #-}
 
+import Prelude hiding ((.), id, zip, zipWith)
+import Control.Category
+import Data.Zip
+
 {--
 The Arrangement data type is similar to sequence in that it provides O(lg(n)) random access, but it
 is arranged differently. It has the property that an element at a larger index can never be the parent
@@ -46,6 +50,31 @@ insert x i arr	| i == 0	= Branch x (left arr) (right arr)
 			| odd i		= (left arr) ? ((i - 1) `div` 2)
 			| even i	= (right arr) ? ((i - 2) `div` 2)
 
+(\\) :: Arrangement a -> (Int, a) -> Arrangement a
+(\\) Empty (i, x)				| i == 0	= Branch x Empty Empty
+								| otherwise	= insert x i Empty
+(\\) (Branch y l r) (i, x)		| i == 0 	= Branch x l r
+								| odd i 	= Branch y (l \\ ((i - 1) `div` 2, x)) r
+								| even i 	= Branch y l (r \\ ((i - 2) `div` 2, x))
+
+instance Zip Arrangement where
+	zip Empty _ = Empty
+	zip _ Empty = Empty
+	zip (Branch x1 l1 r1) (Branch x2 l2 r2) = Branch (x1, x2) (zip l1 l2) (zip r1 r2)
+
+extract :: Arrangement (Arrangement a -> b) -> (Arrangement a -> Arrangement b)
+extract arrf = \arrx -> fmap ($ arrx) arrf
+
+{--
+
+--}
+
+newtype ArrMap a b = ArrMap (Arrangement (a -> b))
+
+instance Category ArrMap where
+	id = ArrMap . generateA . const $ id
+	(.) (ArrMap arr1) (ArrMap arr2) = ArrMap (zipWith (.) arr1 arr2)
+
 {--
 The actual union-find structure. Based on tying the knot. You get path compression for free.
 --}
@@ -62,28 +91,40 @@ type UF = ReprSet -> ReprMap
 singletons :: UF
 singletons = \rs -> generateA (\i -> rs ? i)
 
+--- The representative set that should be fed to the UF structure to generate a representative map.
+reprSet :: ReprSet
+reprSet = generateA $ \i -> (1, i)
+
 -- Finds the representative of a given element in a given union-find structure.
 find :: Int -> UF -> Int
-find n uf = snd $ (uf . generateA $ \i -> (1, i)) ? n
+find n uf = let rm = uf reprSet in snd $ rm ? n
 
 -- Determines the size (number of element) in the equivalence class of a given element
 size :: Int -> UF -> Int
-size n uf = fst $ (uf . generateA $ \i -> (1, i)) ? n
+size n uf = let rm = uf reprSet in fst $ rm ? n
 
 -- Returns the union-find structure resulting from the pairing of two equivalence classes.
 union :: Int -> Int -> UF -> UF
-union m n uf = uf . (if sm < sn then paired rm rn else paired rn rm)
+union i j uf = uf . transducer
 	where
-		sm = size rm uf
-		sn = size rn uf
-		rm = find m uf
-		rn = find n uf
+		si = size i uf
+		ri = find i uf
+		sj = size j uf
+		rj = find j uf
+		transducer rs = rs \\ root \\ complement
+			where
+				rm = uf . transducer $ rs
+				root = if si < sj then (rj, (si + sj, rj)) else (ri, (si + sj, ri))
+				complement = if si < sj then (ri, rs ? rj) else (rj, rs ? ri)
 
 -- A union-find structure in which everything is a singleton element, except for m and n, which are
--- paired (in the same equivalence class).
+-- paired (in the same equivalence class). Actually, for any UF uf, union i j uf = uf . paired i j,
+-- but this is less efficient than the implementation above.
 paired :: Int -> Int -> UF
-paired m n rs = generateA $ \i -> if i == m || i == n then (sm + sn, en) else rs ? i
+paired i j = \rs -> generateA (\i -> if i == j then rs ? j else rs ? i)
+{--paired :: Int -> Int -> UF
+paired m n rs = generateA $ \i -> if i == m then (sm + sn, en) else if i == n then (sn, en) else rs ? i
 	where
 		en = snd $ rs ? n
 		sm = fst $ rs ? m
-		sn = fst $ rs ? n
+		sn = fst $ rs ? n--}
