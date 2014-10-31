@@ -48,25 +48,42 @@ insert x i arr	| i == 0	= Branch x (left arr) (right arr)
 
 {--
 The actual union-find structure. Based on tying the knot. You get path compression for free.
-
-TODO: Augment with size so that you actually get a(n) performance.
 --}
 
-type Transducer = Arrangement Int
-type RepresentativeMap = Arrangement Int
-type UF = Transducer -> RepresentativeMap
+type Size = Int
+type ClassName = Int
+type Element = (Size, ClassName)
+type ReprSet = Arrangement Element
+type ReprMap = Arrangement Element
+type UF = ReprSet -> ReprMap
 
 -- The initial union-find structure, where everything is a singleton element. Don't have to specify
 -- how many there are, it ends up using just however many you need.
 singletons :: UF
-singletons = \td -> generateA (\i -> td ? i)
+singletons = \rs -> generateA (\i -> rs ? i)
 
+-- Finds the representative of a given element in a given union-find structure.
 find :: Int -> UF -> Int
-find n uf = (uf infiniteA) ? n
+find n uf = snd $ (uf . generateA $ \i -> (1, i)) ? n
 
+-- Determines the size (number of element) in the equivalence class of a given element
+size :: Int -> UF -> Int
+size n uf = fst $ (uf . generateA $ \i -> (1, i)) ? n
+
+-- Returns the union-find structure resulting from the pairing of two equivalence classes.
 union :: Int -> Int -> UF -> UF
-union m n uf = uf . transducer
+union m n uf = uf . (if sm < sn then paired rm rn else paired rn rm)
 	where
+		sm = size rm uf
+		sn = size rn uf
 		rm = find m uf
 		rn = find n uf
-		transducer xs = generateA $ \i -> if i == rm then xs ? rn else xs ? i
+
+-- A union-find structure in which everything is a singleton element, except for m and n, which are
+-- paired (in the same equivalence class).
+paired :: Int -> Int -> UF
+paired m n rs = generateA $ \i -> if i == m || i == n then (sm + sn, en) else rs ? i
+	where
+		en = snd $ rs ? n
+		sm = fst $ rs ? m
+		sn = fst $ rs ? n
