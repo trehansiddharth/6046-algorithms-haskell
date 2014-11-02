@@ -89,7 +89,7 @@ type UF = ReprSet -> ReprMap
 -- The initial union-find structure, where everything is a singleton element. Don't have to specify
 -- how many there are, it ends up using just however many you need.
 singletons :: UF
-singletons = \rs -> generateA (\i -> rs ? i)
+singletons = id
 
 --- The representative set that should be fed to the UF structure to generate a representative map.
 reprSet :: ReprSet
@@ -105,22 +105,24 @@ size n uf = let rm = uf reprSet in rm ? n
 
 -- Returns the union-find structure resulting from the pairing of two equivalence classes.
 union :: Int -> Int -> UF -> UF
-union i j uf = uf . transducer
+union i j uf = uf . transduce ri rj uf
 	where
-		si = size i uf
+		--si = size i uf
 		ri = find i uf
-		sj = size j uf
+		--sj = size j uf
 		rj = find j uf
-		transducer rs = let rm = uf . transducer $ rs in rs \\ (ri, rm ? rj)
 
 -- A union-find structure in which everything is a singleton element, except for m and n, which are
 -- paired (in the same equivalence class). Actually, for any UF uf, union i j uf = uf . paired i j,
 -- but this is less efficient than the implementation above.
 paired :: Int -> Int -> UF
-paired i j = \rs -> generateA (\i -> if i == j then rs ? j else rs ? i)
+paired i j = transduce i j singletons
 {--paired :: Int -> Int -> UF
 paired m n rs = generateA $ \i -> if i == m then (sm + sn, en) else if i == n then (sn, en) else rs ? i
 	where
 		en = snd $ rs ? n
 		sm = fst $ rs ? m
 		sn = fst $ rs ? n--}
+
+transduce :: Int -> Int -> UF -> UF
+transduce ri rj uf = \rs -> let rm = uf . transduce ri rj uf $ rs in rs \\ (ri, rm ? rj)
